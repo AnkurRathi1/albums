@@ -1,373 +1,382 @@
-from flask import Blueprint
+import json
+
 from flask import request
-from flask_jwt import jwt_required
-import sqlite3
+from src.utils import bp, db
 from flask import make_response, jsonify
-from ..db.sql import create_db_conn, insert_table, get_table_data, remove_table_entry
-from ..connection.connection import create_connection
-bp = Blueprint('pos', __name__, url_prefix='/api/v1')
+from flask.views import MethodView
+from .schemas import ImagesSchema, ArtistsSchema, ItemsSchema, AlbumsSchema, TracksSchema
+from .models import Images, Artists, Items, Albums, Tracks
 
 
-@bp.route("/create_tables", methods=['POST'])
-def create_tables():
-    tables = create_db_conn()
-    if tables:
-        return make_response(jsonify({'message': 'Tables created successfully', 'status': 200}), 200)
-    else:
-        return make_response(jsonify({'message': 'Tables not created properly', 'status': 422}), 422)
+class ImagesResourceView(MethodView):
 
+    def get(self):
+        try:
+            data = request.args
+            default_limit = 5
+            if 'limit' in data and data['limit']:
+                default_limit = data['limit']
+            entry = Images.query.limit(default_limit).all()
+            json_data = [ImagesSchema().dump(en) for en in entry]
+            return make_response(jsonify({"data": json_data, "error": False}), 200)
+        except Exception as e:
+            return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
 
-@bp.route("/insert_images", methods=['POST'])
-def insert_images():
-    data = request.json
-    args = request.environ
-    if 'HTTP_AUTHORIZATION' not in args:
-        return make_response(jsonify({"message": "Authorization token is missing", "status": 401}), 401)
-    if not data:
-        return make_response(jsonify({"message": "Please data is not inserted", "status": 401}), 401)
-    if 'url' not in data:
-        return make_response(jsonify({"message": "url is required", "status": 401}), 401)
-    if 'height' not in data:
-        return make_response(jsonify({"message": "height is required", "status": 401}), 401)
-    if 'width' not in data:
-        return make_response(jsonify({"message": "weight is required", "status": 401}), 401)
-    conn = create_connection()
-    try:
-        sqlite_insert_with_param = """INSERT INTO images
-                              (url, height, width) 
-                              VALUES (?, ?, ?);"""
+    def post(self):
+        data = request.json
+        try:
+            data = ImagesSchema().load(data, many=False, session=db)
+            try:
+                db.session.add(data)
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                return make_response(jsonify(e), 422)
+            return make_response(jsonify({'error': False, 'data': json.loads(ImagesSchema().dumps(data)),
+                                          'message': 'Items added successfully'}), 200)
+        except Exception as e:
+            return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
 
-        data_tuple = (data['url'], data['height'], data['width'])
-        inserted = insert_table(conn, sqlite_insert_with_param, data_tuple)
-        if inserted:
-            return make_response(jsonify({"message": 'Data inserted for images successfully', "status": 200})), 200
-        else:
-            return make_response(jsonify({"message": str(inserted), "status": 422})), 422
-
-    except sqlite3.Error as error:
-        print("Failed to insert Python variable into sqlite table", error)
-    finally:
-        if conn:
-            conn.close()
-            print("The SQLite connection is closed")
-
-
-@bp.route("/insert_artists", methods=['POST'])
-def insert_artists():
-    data = request.json
-    args = request.environ
-    if 'HTTP_AUTHORIZATION' not in args:
-        return make_response(jsonify({"message": "Authorization token is missing", "status": 401}), 401)
-    if not data:
-        return make_response(jsonify({"message": "Please data is not inserted", "status": 401}), 401)
-    if 'name' not in data:
-        return make_response(jsonify({"message": "name is required", "status": 401}), 401)
-    if 'href' not in data:
-        return make_response(jsonify({"message": "href is required", "status": 401}), 401)
-    if 'type' not in data:
-        return make_response(jsonify({"message": "type is required", "status": 401}), 401)
-    if 'uri' not in data:
-        return make_response(jsonify({"message": "uri is required", "status": 401}), 401)
-    if 'image_id' not in data:
-        return make_response(jsonify({"message": "image_id is required", "status": 401}), 401)
-    if 'popularity' not in data:
-        return make_response(jsonify({"message": "popularity is required", "status": 401}), 401)
-    conn = create_connection()
-    try:
-        sqlite_insert_with_param = """INSERT INTO artists
-                              (name, href, type, uri, image_id, popularity) 
-                              VALUES (?, ?, ?, ?, ?, ?);"""
-
-        data_tuple = (data['name'], data['href'], data['type'], data['uri'], data['image_id'], int(data['popularity']))
-        inserted = insert_table(conn, sqlite_insert_with_param, data_tuple)
-        if inserted:
-            return make_response(jsonify({"message": 'Data inserted for artists successfully', "status": 200})), 200
-        else:
-            return make_response(jsonify({"message": str(inserted), "status": 422})), 422
-
-    except sqlite3.Error as error:
-        print("Failed to insert Python variable into sqlite table", error)
-    finally:
-        if conn:
-            conn.close()
-            print("The SQLite connection is closed")
-
-
-@bp.route("/insert_items", methods=['POST'])
-def insert_items():
-    args = request.environ
-    if 'HTTP_AUTHORIZATION' not in args:
-        return make_response(jsonify({"message": "Authorization token is missing", "status": 401}), 401)
-    data = request.json
-    if not data:
-        return make_response(jsonify({"message": "Please data is not inserted", "status": 401}), 401)
-    if 'name' not in data:
-        return make_response(jsonify({"message": "name is required", "status": 401}), 401)
-    if 'href' not in data:
-        return make_response(jsonify({"message": "href is required", "status": 401}), 401)
-    conn = create_connection()
-    try:
-        sqlite_insert_with_param = """INSERT INTO items
-                              (name, href) 
-                              VALUES (?, ?);"""
-
-        data_tuple = (data['name'], data['href'])
-        inserted = insert_table(conn, sqlite_insert_with_param, data_tuple)
-        if inserted:
-            return make_response(jsonify({"message": 'Data inserted for items successfully', "status": 200})), 200
-        else:
-            return make_response(jsonify({"message": str(inserted), "status": 422})), 422
-
-    except sqlite3.Error as error:
-        print("Failed to insert Python variable into sqlite table", error)
-    finally:
-        if conn:
-            conn.close()
-            print("The SQLite connection is closed")
-
-
-@bp.route("/insert_tracks", methods=['POST'])
-def insert_tracks():
-    args = request.environ
-    if 'HTTP_AUTHORIZATION' not in args:
-        return make_response(jsonify({"message": "Authorization token is missing", "status": 401}), 401)
-    data = request.json
-    if not data:
-        return make_response(jsonify({"message": "Please data is not inserted", "status": 401}), 401)
-    if 'limit' not in data:
-        return make_response(jsonify({"message": "limit is required", "status": 401}), 401)
-    if 'href' not in data:
-        return make_response(jsonify({"message": "href is required", "status": 401}), 401)
-    if 'next' not in data:
-        return make_response(jsonify({"message": "next is required", "status": 401}), 401)
-    if 'offset' not in data:
-        return make_response(jsonify({"message": "offset is required", "status": 401}), 401)
-    if 'previous' not in data:
-        return make_response(jsonify({"message": "previous is required", "status": 401}), 401)
-    if 'total' not in data:
-        return make_response(jsonify({"message": "total is required", "status": 401}), 401)
-    conn = create_connection()
-    try:
-        sqlite_insert_with_param = """INSERT INTO tracks
-                              ("limit", href, next, offset, previous, total) 
-                              VALUES (?, ?, ?, ?, ?, ?);"""
-
-        data_tuple = (int(data['limit']), data['href'], data['next'], int(data['offset']), data['previous'],
-                      int(data['total']))
-        inserted = insert_table(conn, sqlite_insert_with_param, data_tuple)
-        if inserted:
-            return make_response(jsonify({"message": 'Data inserted for tracks successfully', "status": 200})), 200
-        else:
-            return make_response(jsonify({"message": str(inserted), "status": 422})), 422
-
-    except sqlite3.Error as error:
-        print("Failed to insert Python variable into sqlite table", error)
-    finally:
-        if conn:
-            conn.close()
-            print("The SQLite connection is closed")
-
-
-@bp.route("/insert_albums", methods=['POST'])
-def insert_albums():
-    args = request.environ
-    if 'HTTP_AUTHORIZATION' not in args:
-        return make_response(jsonify({"message": "Authorization token is missing", "status": 401}), 401)
-    data = request.json
-    if not data:
-        return make_response(jsonify({"message": "Please data is not inserted", "status": 401}), 401)
-    if 'album_type' not in data:
-        return make_response(jsonify({"message": "album_type is required", "status": 401}), 401)
-    if 'name' not in data:
-        return make_response(jsonify({"message": "name is required", "status": 401}), 401)
-    if 'release_date' not in data:
-        return make_response(jsonify({"message": "release_date is required", "status": 401}), 401)
-    if 'type' not in data:
-        return make_response(jsonify({"message": "type is required", "status": 401}), 401)
-    if 'uri' not in data:
-        return make_response(jsonify({"message": "uri is required", "status": 401}), 401)
-    if 'href' not in data:
-        return make_response(jsonify({"message": "href is required", "status": 401}), 401)
-    if 'available_markets' not in data:
-        return make_response(jsonify({"message": "available_markets is required", "status": 401}), 401)
-    if 'image_id' not in data:
-        return make_response(jsonify({"message": "image_id is required", "status": 401}), 401)
-    if 'artist_id' not in data:
-        return make_response(jsonify({"message": "artist_id is required", "status": 401}), 401)
-    if 'track_id' not in data:
-        return make_response(jsonify({"message": "track_id is required", "status": 401}), 401)
-    conn = create_connection()
-    try:
-        sqlite_insert_with_param = """INSERT INTO albums
-                              (album_type, name, release_date, type, uri, href, available_markets, image_id,
-                               artist_id, track_id) 
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"""
-
-        data_tuple = (data['album_type'], data['name'], data['release_date'], data['type'], data['uri'], data['href'],
-                      data['available_markets'], data['image_id'], data['artist_id'], data['track_id'])
-        inserted = insert_table(conn, sqlite_insert_with_param, data_tuple)
-        if inserted:
-            return make_response(jsonify({"message": 'Data inserted for tracks successfully', "status": 200})), 200
-        else:
-            return make_response(jsonify({"message": str(inserted), "status": 422})), 422
-
-    except sqlite3.Error as error:
-        print("Failed to insert Python variable into sqlite table", error)
-    finally:
-        if conn:
-            conn.close()
-            print("The SQLite connection is closed")
-
-
-@bp.route("/get_images", methods=['GET'])
-@bp.route("/get_images/<id>", methods=['GET'])
-def get_images(id=None):
-    args = request.environ
-    if 'HTTP_AUTHORIZATION' not in args:
-        return make_response(jsonify({"message": "Authorization token is missing", "status": 401}), 401)
-    conn = create_connection()
-    try:
-        if id:
-            sqlite_get_with_param = "SELECT * FROM images WHERE id={};".format(id)
-        else:
-            sqlite_get_with_param = "SELECT * FROM images;"
-
-        inserted = get_table_data(conn, sqlite_get_with_param)
-        for row in inserted:
-            print(row)
-        if inserted:
-            return make_response(jsonify(inserted)), 200
-        else:
-            return make_response(jsonify({"message": str(inserted), "status": 422})), 422
-
-    except sqlite3.Error as error:
-        print("Failed to insert Python variable into sqlite table", error)
-    finally:
-        if conn:
-            conn.close()
-            print("The SQLite connection is closed")
-
-
-@bp.route("/get_artists", methods=['GET'])
-@bp.route("/get_artists/<id>", methods=['GET'])
-def get_artists(id=None):
-    args = request.environ
-    if 'HTTP_AUTHORIZATION' not in args:
-        return make_response(jsonify({"message": "Authorization token is missing", "status": 401}), 401)
-    conn = create_connection()
-    try:
-        if id:
-            sqlite_get_with_param = "SELECT * FROM artists WHERE id={};".format(id)
-        else:
-            sqlite_get_with_param = "SELECT * FROM artists;"
-
-        inserted = get_table_data(conn, sqlite_get_with_param)
-        if inserted:
-            return make_response(jsonify(inserted)), 200
-        else:
-            return make_response(jsonify({"message": str(inserted), "status": 422})), 422
-
-    except sqlite3.Error as error:
-        print("Failed to insert Python variable into sqlite table", error)
-    finally:
-        if conn:
-            conn.close()
-            print("The SQLite connection is closed")
-
-
-@bp.route("/get_albums", methods=['GET'])
-@bp.route("/get_albums/<id>", methods=['GET'])
-def get_albums(id=None):
-    args = request.environ
-    if 'HTTP_AUTHORIZATION' not in args:
-        return make_response(jsonify({"message": "Authorization token is missing", "status": 401}), 401)
-    conn = create_connection()
-    try:
-        if id:
-            sqlite_get_with_param = "SELECT * FROM albums WHERE id={};".format(id)
-        else:
-            sqlite_get_with_param = "SELECT * FROM albums;"
-
-        inserted = get_table_data(conn, sqlite_get_with_param)
-        if inserted:
-            return make_response(jsonify(inserted)), 200
-        else:
-            return make_response(jsonify({"message": str(inserted), "status": 422})), 422
-
-    except sqlite3.Error as error:
-        print("Failed to insert Python variable into sqlite table", error)
-    finally:
-        if conn:
-            conn.close()
-            print("The SQLite connection is closed")
-
-
-@bp.route("/get_album_tracks", methods=['GET'])
-@bp.route("/get_album_tracks/<id>/tracks", methods=['GET'])
-def get_album_track(id=None):
-    args = request.environ
-    if 'HTTP_AUTHORIZATION' not in args:
-        return make_response(jsonify({"message": "Authorization token is missing", "status": 401}), 401)
-    data = request.args
-    limit = None
-    offset = None
-    if 'limit' in data:
-        limit = data['limit']
-    if 'offset' in data:
-        offset = data['offset']
-    conn = create_connection()
-    try:
-        if id:
-            if limit and offset:
-                sqlite_get_with_param = "SELECT * FROM tracks WHERE id={} and limit= {} and offset= {};".format(id,
-                                                                                                                limit,
-                                                                                                                offset)
+    def patch(self):
+        slug = request.args
+        if 'id' in slug and slug['id']:
+            obj = Images.query.get(slug['id'])
+            if obj:
+                try:
+                    obj = ImagesSchema().load(request.json, instance=obj, partial=True, session=db)
+                    if obj:
+                        obj = json.loads(ImagesSchema().dumps(obj))
+                        exist_record = Images.query.filter(Images.id == slug['id'])
+                        exist_record.update(obj)
+                        db.session.commit()
+                        return make_response(jsonify({'error': False, 'message': 'Resource Updated successfully'}), 200)
+                    else:
+                        return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+                except Exception as e:
+                    db.session.rollback()
+                    return make_response(jsonify(e), 422)
             else:
-                sqlite_get_with_param = "SELECT * FROM tracks WHERE id={};".format(id)
+                return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+
         else:
-            if limit and offset:
-                sqlite_get_with_param = 'SELECT * FROM tracks WHERE "limit"= {} and offset= {};'.format(limit, offset)
+            return make_response(jsonify({'error': True, 'message': 'Slug is missing for the request'}), 400)
+
+    def delete(self):
+        slug = request.args
+        if 'id' in slug and slug['id']:
+            obj = Images.query.get(slug['id'])
+            if obj:
+                try:
+                    db.session.delete(obj)
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    return make_response(jsonify(e), 422)
+                return make_response(jsonify({'error': False, 'message': 'Resource deleted successfully'}), 200)
             else:
-                sqlite_get_with_param = "SELECT * FROM tracks;"
-
-        inserted = get_table_data(conn, sqlite_get_with_param)
-        if inserted:
-            return make_response(jsonify(inserted)), 200
+                return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
         else:
-            return make_response(jsonify({"message": str(inserted), "status": 422})), 422
-
-    except sqlite3.Error as error:
-        print("Failed to insert Python variable into sqlite table", error)
-    finally:
-        if conn:
-            conn.close()
-            print("The SQLite connection is closed")
+            return make_response(jsonify({'error': True, 'message': 'Slug is missing for the request'}), 400)
 
 
-@bp.route("/delete_album/<id>", methods=['DELETE'])
-def delete_album(id=None):
-    args = request.environ
-    if 'HTTP_AUTHORIZATION' not in args:
-        return make_response(jsonify({"message": "Authorization token is missing", "status": 401}), 401)
-    conn = create_connection()
-    try:
-        if id:
-            sqlite_get_with_param = "DELETE FROM albums WHERE id={};".format(id)
+bp.add_url_rule('/images_resource_view', view_func=ImagesResourceView.as_view('images_resource_view'))
 
-            inserted = remove_table_entry(conn, sqlite_get_with_param)
-            if inserted:
-                return make_response(jsonify(inserted)), 200
+
+class ArtistsResourceView(MethodView):
+
+    def get(self):
+        try:
+            data = request.args
+            default_limit = 5
+            if 'limit' in data and data['limit']:
+                default_limit = data['limit']
+            entry = Artists.query.limit(default_limit).all()
+            json_data = [ArtistsSchema().dump(en) for en in entry]
+            return make_response(jsonify({"data": json_data, "error": False}), 200)
+        except Exception as e:
+            return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
+
+    def post(self):
+        data = request.json
+        try:
+            data = ArtistsSchema().load(data, many=False, session=db)
+            try:
+                db.session.add(data)
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                return make_response(jsonify(e), 422)
+            return make_response(jsonify({'error': False, 'data': json.loads(ArtistsSchema().dumps(data)),
+                                          'message': 'Items added successfully'}), 200)
+        except Exception as e:
+            return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
+
+    def patch(self):
+        slug = request.args
+        if 'id' in slug and slug['id']:
+            obj = Artists.query.get(slug['id'])
+            if obj:
+                try:
+                    obj = ArtistsSchema().load(request.json, instance=obj, partial=True, session=db)
+                    if obj:
+                        obj = json.loads(ArtistsSchema().dumps(obj))
+                        exist_record = Artists.query.filter(Artists.id == slug['id'])
+                        exist_record.update(obj)
+                        db.session.commit()
+                        return make_response(jsonify({'error': False, 'message': 'Resource Updated successfully'}), 200)
+                    else:
+                        return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+                except Exception as e:
+                    print(e)
+                    db.session.rollback()
+                    return make_response(jsonify({'errors': str(e)}), 422)
             else:
-                return make_response(jsonify({"message": "No data found", "status": 422})), 422
+                return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+
         else:
-            return make_response(jsonify({"message": "Please specify the id for deletion", "status": 422})), 422
+            return make_response(jsonify({'error': True, 'message': 'Slug is missing for the request'}), 400)
 
-    except sqlite3.Error as error:
-        print("Failed to insert Python variable into sqlite table", error)
-    finally:
-        if conn:
-            conn.close()
-            print("The SQLite connection is closed")
+    def delete(self):
+        slug = request.args
+        if 'id' in slug and slug['id']:
+            obj = Artists.query.get(slug['id'])
+            if obj:
+                try:
+                    db.session.delete(obj)
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    return make_response(jsonify(e), 422)
+                return make_response(jsonify({'error': False, 'message': 'Resource deleted successfully'}), 200)
+            else:
+                return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+        else:
+            return make_response(jsonify({'error': True, 'message': 'Slug is missing for the request'}), 400)
 
 
+bp.add_url_rule('/artists_resource_view', view_func=ArtistsResourceView.as_view('artists_resource_view'))
 
+
+class ItemsResourceView(MethodView):
+
+    def get(self):
+        try:
+            data = request.args
+            default_limit = 5
+            if 'limit' in data and data['limit']:
+                default_limit = data['limit']
+            entry = Items.query.limit(default_limit).all()
+            json_data = [ItemsSchema().dump(en) for en in entry]
+            return make_response(jsonify({"data": json_data, "error": False}), 200)
+        except Exception as e:
+            return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
+
+    def post(self):
+        data = request.json
+        try:
+            data = ItemsSchema().load(data, many=False, session=db)
+            try:
+                db.session.add(data)
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                return make_response(jsonify(e), 422)
+            return make_response(jsonify({'error': False, 'data': json.loads(ItemsSchema().dumps(data)),
+                                          'message': 'Items added successfully'}), 200)
+        except Exception as e:
+            return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
+
+    def patch(self):
+        slug = request.args
+        if 'id' in slug and slug['id']:
+            obj = Items.query.get(slug['id'])
+            if obj:
+                try:
+                    obj = ItemsSchema().load(request.json, instance=obj, partial=True, session=db)
+                    if obj:
+                        obj = json.loads(ItemsSchema().dumps(obj))
+                        exist_record = Items.query.filter(Items.id == slug['id'])
+                        exist_record.update(obj)
+                        db.session.commit()
+                        return make_response(jsonify({'error': False, 'message': 'Resource Updated successfully'}), 200)
+                    else:
+                        return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+                except Exception as e:
+                    print(e)
+                    db.session.rollback()
+                    return make_response(jsonify({'errors': str(e)}), 422)
+            else:
+                return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+
+        else:
+            return make_response(jsonify({'error': True, 'message': 'Slug is missing for the request'}), 400)
+
+    def delete(self):
+        slug = request.args
+        if 'id' in slug and slug['id']:
+            obj = Items.query.get(slug['id'])
+            if obj:
+                try:
+                    db.session.delete(obj)
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    return make_response(jsonify(e), 422)
+                return make_response(jsonify({'error': False, 'message': 'Resource deleted successfully'}), 200)
+            else:
+                return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+        else:
+            return make_response(jsonify({'error': True, 'message': 'Slug is missing for the request'}), 400)
+
+
+bp.add_url_rule('/items_resource_view', view_func=ItemsResourceView.as_view('items_resource_view'))
+
+
+class TracksResourceView(MethodView):
+
+    def get(self):
+        try:
+            data = request.args
+            default_limit = 5
+            if 'limit' in data and data['limit']:
+                default_limit = data['limit']
+            entry = Tracks.query.limit(default_limit).all()
+            json_data = [TracksSchema().dump(en) for en in entry]
+            return make_response(jsonify({"data": json_data, "error": False}), 200)
+        except Exception as e:
+            return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
+
+    def post(self):
+        data = request.json
+        try:
+            data = TracksSchema().load(data, many=False, session=db)
+            try:
+                db.session.add(data)
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                return make_response(jsonify(e), 422)
+            return make_response(jsonify({'error': False, 'data': json.loads(TracksSchema().dumps(data)),
+                                          'message': 'Items added successfully'}), 200)
+        except Exception as e:
+            return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
+
+    def patch(self):
+        slug = request.args
+        if 'id' in slug and slug['id']:
+            obj = Tracks.query.get(slug['id'])
+            if obj:
+                try:
+                    obj = TracksSchema().load(request.json, instance=obj, partial=True, session=db)
+                    if obj:
+                        obj = json.loads(TracksSchema().dumps(obj))
+                        exist_record = Tracks.query.filter(Tracks.id == slug['id'])
+                        exist_record.update(obj)
+                        db.session.commit()
+                        return make_response(jsonify({'error': False, 'message': 'Resource Updated successfully'}), 200)
+                    else:
+                        return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+                except Exception as e:
+                    print(e)
+                    db.session.rollback()
+                    return make_response(jsonify({'errors': str(e)}), 422)
+            else:
+                return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+
+        else:
+            return make_response(jsonify({'error': True, 'message': 'Slug is missing for the request'}), 400)
+
+    def delete(self):
+        slug = request.args
+        if 'id' in slug and slug['id']:
+            obj = Tracks.query.get(slug['id'])
+            if obj:
+                try:
+                    db.session.delete(obj)
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    return make_response(jsonify(e), 422)
+                return make_response(jsonify({'error': False, 'message': 'Resource deleted successfully'}), 200)
+            else:
+                return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+        else:
+            return make_response(jsonify({'error': True, 'message': 'Slug is missing for the request'}), 400)
+
+
+bp.add_url_rule('/tracks_resource_view', view_func=TracksResourceView.as_view('tracks_resource_view'))
+
+
+class AlbumsResourceView(MethodView):
+
+    def get(self):
+        try:
+            data = request.args
+            default_limit = 5
+            if 'limit' in data and data['limit']:
+                default_limit = data['limit']
+            entry = Albums.query.limit(default_limit).all()
+            json_data = [AlbumsSchema().dump(en) for en in entry]
+            return make_response(jsonify({"data": json_data, "error": False}), 200)
+        except Exception as e:
+            return make_response(jsonify({'error': True, 'error_messages': str(e)})), 422
+
+    def post(self):
+        data = request.json
+        try:
+            data = AlbumsSchema().load(data, many=False, session=db)
+            try:
+                db.session.add(data)
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                return make_response(jsonify(e), 422)
+            return make_response(jsonify({'error': False, 'data': json.loads(AlbumsSchema().dumps(data)),
+                                          'message': 'Items added successfully'}), 200)
+        except Exception as e:
+            return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
+
+    def patch(self):
+        slug = request.args
+        if 'id' in slug and slug['id']:
+            obj = Albums.query.get(slug['id'])
+            if obj:
+                try:
+                    obj = AlbumsSchema().load(request.json, instance=obj, partial=True, session=db)
+                    if obj:
+                        obj = json.loads(AlbumsSchema().dumps(obj))
+                        exist_record = Albums.query.filter(Albums.id == slug['id'])
+                        exist_record.update(obj)
+                        db.session.commit()
+                        return make_response(jsonify({'error': False, 'message': 'Resource Updated successfully'}), 200)
+                    else:
+                        return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+                except Exception as e:
+                    print(e)
+                    db.session.rollback()
+                    return make_response(jsonify({'errors': str(e)}), 422)
+            else:
+                return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+
+        else:
+            return make_response(jsonify({'error': True, 'message': 'Slug is missing for the request'}), 400)
+
+    def delete(self):
+        slug = request.args
+        if 'id' in slug and slug['id']:
+            obj = Albums.query.get(slug['id'])
+            if obj:
+                try:
+                    db.session.delete(obj)
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    return make_response(jsonify(e), 422)
+                return make_response(jsonify({'error': False, 'message': 'Resource deleted successfully'}), 200)
+            else:
+                return make_response(jsonify({'error': True, 'message': 'Resource not found'}), 404)
+        else:
+            return make_response(jsonify({'error': True, 'message': 'Slug is missing for the request'}), 400)
+
+
+bp.add_url_rule('/albums_resource_view', view_func=AlbumsResourceView.as_view('albums_resource_view'))
