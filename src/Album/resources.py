@@ -43,11 +43,10 @@ class ImagesResourceView(MethodView):
             obj = Images.query.get(slug['id'])
             if obj:
                 try:
-                    obj = ImagesSchema().load(request.json, instance=obj, partial=True, session=db)
+                    obj = ImagesSchema().load(request.json, instance=obj, session=db)
                     if obj:
-                        obj = json.loads(ImagesSchema().dumps(obj))
                         exist_record = Images.query.filter(Images.id == slug['id'])
-                        exist_record.update(obj)
+                        exist_record.update(request.json)
                         db.session.commit()
                         return make_response(jsonify({'error': False, 'message': 'Resource Updated successfully'}), 200)
                     else:
@@ -119,9 +118,8 @@ class ArtistsResourceView(MethodView):
                 try:
                     obj = ArtistsSchema().load(request.json, instance=obj, partial=True, session=db)
                     if obj:
-                        obj = json.loads(ArtistsSchema().dumps(obj))
                         exist_record = Artists.query.filter(Artists.id == slug['id'])
-                        exist_record.update(obj)
+                        exist_record.update(request.json)
                         db.session.commit()
                         return make_response(jsonify({'error': False, 'message': 'Resource Updated successfully'}), 200)
                     else:
@@ -194,9 +192,8 @@ class ItemsResourceView(MethodView):
                 try:
                     obj = ItemsSchema().load(request.json, instance=obj, partial=True, session=db)
                     if obj:
-                        obj = json.loads(ItemsSchema().dumps(obj))
                         exist_record = Items.query.filter(Items.id == slug['id'])
-                        exist_record.update(obj)
+                        exist_record.update(request.json)
                         db.session.commit()
                         return make_response(jsonify({'error': False, 'message': 'Resource Updated successfully'}), 200)
                     else:
@@ -269,9 +266,8 @@ class TracksResourceView(MethodView):
                 try:
                     obj = TracksSchema().load(request.json, instance=obj, partial=True, session=db)
                     if obj:
-                        obj = json.loads(TracksSchema().dumps(obj))
                         exist_record = Tracks.query.filter(Tracks.id == slug['id'])
-                        exist_record.update(obj)
+                        exist_record.update(request.json)
                         db.session.commit()
                         return make_response(jsonify({'error': False, 'message': 'Resource Updated successfully'}), 200)
                     else:
@@ -344,9 +340,8 @@ class AlbumsResourceView(MethodView):
                 try:
                     obj = AlbumsSchema().load(request.json, instance=obj, partial=True, session=db)
                     if obj:
-                        obj = json.loads(AlbumsSchema().dumps(obj))
                         exist_record = Albums.query.filter(Albums.id == slug['id'])
-                        exist_record.update(obj)
+                        exist_record.update(request.json)
                         db.session.commit()
                         return make_response(jsonify({'error': False, 'message': 'Resource Updated successfully'}), 200)
                     else:
