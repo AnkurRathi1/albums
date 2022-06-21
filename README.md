@@ -73,8 +73,6 @@ Now Database path setup complete.
 
 Now all tables generated in the database.
 
-Mentioned apis some api requests in the collection attached. Import the collection in the postman.
-
-
+Now API's can be hit form postman.
 
 
