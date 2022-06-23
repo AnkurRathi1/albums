@@ -1,4 +1,5 @@
-from marshmallow_sqlalchemy import SQLAlchemyAutoSchema, auto_field
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema, auto_field, ModelConverter
+from src.utils import ma
 from .models import Images, Artists, Items, Tracks, Albums
 
 
@@ -22,7 +23,7 @@ class ArtistsSchema(SQLAlchemyAutoSchema):
     type = auto_field(allow_none=False)
     url = auto_field(allow_none=True)
     img_id = auto_field(allow_none=True)
-    images = auto_field(allow_none=True, uselist=True)
+    images = ma.Nested('ImagesSchema', allow_none=True)
     popularity = auto_field(allow_none=True)
 
 
@@ -63,5 +64,8 @@ class AlbumsSchema(SQLAlchemyAutoSchema):
     href = auto_field(allow_none=True)
     available_markets = auto_field(allow_none=True)
     img_id = auto_field(allow_none=True)
+    images = ma.Nested('ImagesSchema', allow_none=True)
     artist_id = auto_field(allow_none=True)
+    artists = ma.Nested('ArtistsSchema', allow_none=True)
     track_id = auto_field(allow_none=True)
+    tracks = ma.Nested('TracksSchema', allow_none=True)

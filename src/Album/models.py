@@ -23,10 +23,11 @@ class Artists(BaseModel, db.Model):
     href = db.Column(db.String(25), nullable=False)
     type = db.Column(db.String(25), nullable=False)
     img_id = db.Column(db.ForeignKey('images.id', ondelete='CASCADE'))
-    images = db.relationship('Images', uselist=False, foreign_keys=[img_id], backref='artists')
+    images = db.relationship('Images', foreign_keys=[img_id])
     url = db.Column(db.String(256), nullable=True)
     popularity = db.Column(db.Integer(), default=1, nullable=True)
     UniqueConstraint(name, type)
+
 
 class Items(BaseModel, db.Model):
     name = db.Column(db.String(256), nullable=True, unique=True)
@@ -53,7 +54,10 @@ class Albums(BaseModel, db.Model):
     href = db.Column(db.String(256), nullable=True)
     available_markets = db.Column(JSON(), default=[])
     img_id = db.Column(db.ForeignKey('images.id', ondelete='CASCADE'))
+    images = db.relationship('Images', foreign_keys=[img_id])
     artist_id = db.Column(db.ForeignKey('artists.id', ondelete='CASCADE'))
+    artists = db.relationship('Artists', foreign_keys=[artist_id])
     track_id = db.Column(db.ForeignKey('tracks.id', ondelete='CASCADE'))
+    tracks = db.relationship('Tracks', foreign_keys=[track_id])
     UniqueConstraint(album_type, name, type)
 
