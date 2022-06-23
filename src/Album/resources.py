@@ -32,7 +32,7 @@ class ImagesResourceView(MethodView):
             except Exception as e:
                 db.session.rollback()
                 return make_response(jsonify(e), 422)
-            return make_response(jsonify({'error': False, 'data': json.loads(ImagesSchema().dumps(data)),
+            return make_response(jsonify({'error': False, 'data': json.loads(json.dumps(data, default=str)),
                                           'message': 'Items added successfully'}), 200)
         except Exception as e:
             return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
@@ -105,7 +105,7 @@ class ArtistsResourceView(MethodView):
             except Exception as e:
                 db.session.rollback()
                 return make_response(jsonify(e), 422)
-            return make_response(jsonify({'error': False, 'data': json.loads(ArtistsSchema().dumps(data)),
+            return make_response(jsonify({'error': False, 'data': json.loads(ArtistsSchema().dumps(data, default=str)),
                                           'message': 'Items added successfully'}), 200)
         except Exception as e:
             return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
@@ -179,7 +179,7 @@ class ItemsResourceView(MethodView):
             except Exception as e:
                 db.session.rollback()
                 return make_response(jsonify(e), 422)
-            return make_response(jsonify({'error': False, 'data': json.loads(ItemsSchema().dumps(data)),
+            return make_response(jsonify({'error': False, 'data': json.loads(ItemsSchema().dumps(data, default=str)),
                                           'message': 'Items added successfully'}), 200)
         except Exception as e:
             return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
@@ -253,7 +253,7 @@ class TracksResourceView(MethodView):
             except Exception as e:
                 db.session.rollback()
                 return make_response(jsonify(e), 422)
-            return make_response(jsonify({'error': False, 'data': json.loads(TracksSchema().dumps(data)),
+            return make_response(jsonify({'error': False, 'data': json.loads(TracksSchema().dumps(data, default=str)),
                                           'message': 'Items added successfully'}), 200)
         except Exception as e:
             return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
@@ -327,7 +327,7 @@ class AlbumsResourceView(MethodView):
             except Exception as e:
                 db.session.rollback()
                 return make_response(jsonify(e), 422)
-            return make_response(jsonify({'error': False, 'data': json.loads(AlbumsSchema().dumps(data)),
+            return make_response(jsonify({'error': False, 'data': json.loads(AlbumsSchema().dumps(data, default=str)),
                                           'message': 'Items added successfully'}), 200)
         except Exception as e:
             return make_response(jsonify({'error': True, 'error_messages': str(e)}), 422)
